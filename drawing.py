@@ -15,9 +15,9 @@ from mediapipe.tasks.python import vision
 
 # Logger
 logging.basicConfig(
-    level=logging.INFO,
-    format="[%(levelname)s] %(asctime)s - %(message)s",
-    datefmt="%H:%M:%S"
+    level = logging.INFO,
+    format = "[%(levelname)s] %(asctime)s - %(message)s",
+    datefmt = "%H:%M:%S"
 )
 logger = logging.getLogger("Handraw")
 
@@ -39,11 +39,15 @@ FINGER_UP_GAP = 20
 FINGER_EXT_RATIO = 0.58
 
 PALETTE = [
-    ("green", (0, 175, 55)),
-    ("blue", (190, 135, 0)),
-    ("pink", (190, 0, 120)),
+    ("green",  (0, 175, 55)),
+    ("blue",   (190, 135, 0)),
+    ("purple", (190, 0, 120)),
     ("orange", (0, 95, 190)),
-    ("white", (205, 205, 205)),
+    ("white",  (205, 205, 205)),
+    ("red",    (0, 0, 220)),
+    ("yellow", (0, 215, 255)),
+    ("cyan",   (200, 180, 0)),
+    ("pink",   (180, 0, 180)),
 ]
 
 BASE_DIR = Path(__file__).resolve().parent
@@ -65,12 +69,12 @@ TUTORIAL_LINES = [
     ("", None),
     ("KEYBOARD", None),
     ("", None),
-    (" 1 - 5  color", (180, 180, 180)),
-    (" [ / ]  brush size", (180, 180, 180)),
-    (" C    clear", (180, 180, 180)),
-    (" S    screenshot", (180, 180, 180)),
-    (" Tab  toggle HUD", (180, 180, 180)),
-    (" Q    quit", (180, 180, 180)),
+    (" '1' - '9'   color", (180, 180, 180)),
+    (" '+' or '-'  brush size", (180, 180, 180)),
+    (" 'C'         clear", (180, 180, 180)),
+    (" 'S'         screenshot", (180, 180, 180)),
+    (" 'Tab'       toggle HUD", (180, 180, 180)),
+    (" 'Q'         quit", (180, 180, 180)),
 ]
 
 # Data Classes 
@@ -88,7 +92,7 @@ def get_empty_state():
 
 class WhiteboardState:
     def __init__(self, w, h):
-        self.canvas = np.zeros((h, w, 3), dtype=np.uint8)
+        self.canvas = np.zeros((h, w, 3), dtype = np.uint8)
         self.brush_size = 8
         self.eraser_size = 38
         self.color_idx = 0
@@ -130,6 +134,12 @@ def classify_gesture(points):
     palm_size = max(get_distance(points[0], points[9]), get_distance(points[5], points[17]), 1.0)
     idx_ext = get_distance(points[8], points[5]) > palm_size * FINGER_EXT_RATIO
 
+    # check is fist?
+    # ring_up = points[16][1] < points[14][1] - FINGER_UP_GAP
+    # pinky_up = points[20][1] < points[18][1] - FINGER_UP_GAP
+    # is_fist = not state.idx_up and not state.mid_up and not ring_up and not pinky_up
+
+    # if is_fist:
     if state.idx_up and state.mid_up:
         state.mode = "Erasing"
     elif state.idx_up or idx_ext:
@@ -145,7 +155,7 @@ def process_frame(frame, detector, detect_w, win_w, win_h):
     flipped = cv2.flip(frame, 1)
     small = cv2.resize(flipped, (detect_w, int(win_h * detect_w / win_w)))
     rgb = cv2.cvtColor(small, cv2.COLOR_BGR2RGB)
-    mp_image = mp.Image(image_format=mp.ImageFormat.SRGB, data=rgb)
+    mp_image = mp.Image(image_format = mp.ImageFormat.SRGB, data = rgb)
     result = detector.detect_for_video(mp_image, int(time.monotonic() * 1000))
     return result.hand_landmarks[0] if result.hand_landmarks else None
 
@@ -160,15 +170,15 @@ def update_state(state, hand_landmarks, win_w, win_h):
         if state.prev_point is not None:
             p1 = tuple(state.prev_point.astype(int))
             p2 = tuple(cursor.astype(int))
-            cv2.line(state.canvas, p1, p2, state.get_color(), state.brush_size, lineType=cv2.LINE_AA)
+            cv2.line(state.canvas, p1, p2, state.get_color(), state.brush_size, lineType = cv2.LINE_AA)
         state.prev_point = cursor
     elif state.current.mode == "Erasing":
         p = tuple(cursor.astype(int))
         if state.prev_point is not None:
             p1 = tuple(state.prev_point.astype(int))
-            cv2.line(state.canvas, p1, p, (0, 0, 0), state.eraser_size * 2, lineType=cv2.LINE_AA)
+            cv2.line(state.canvas, p1, p, (0, 0, 0), state.eraser_size * 2, lineType = cv2.LINE_AA)
         else:
-            cv2.circle(state.canvas, p, state.eraser_size, (0, 0, 0), -1, lineType=cv2.LINE_AA)
+            cv2.circle(state.canvas, p, state.eraser_size, (0, 0, 0), -1, lineType = cv2.LINE_AA)
         state.prev_point = cursor
     else:
         state.prev_point = None
@@ -178,7 +188,7 @@ def update_state(state, hand_landmarks, win_w, win_h):
 # UI
 def compose_image(frame, canvas):
     mask = cv2.threshold(cv2.cvtColor(canvas, cv2.COLOR_BGR2GRAY), 1, 255, cv2.THRESH_BINARY)[1]
-    base = cv2.convertScaleAbs(frame, alpha=CAM_CONTRAST, beta=CAM_BRIGHTNESS)
+    base = cv2.convertScaleAbs(frame, alpha = CAM_CONTRAST, beta = CAM_BRIGHTNESS)
     out = base.copy()
     out[mask > 0] = cv2.addWeighted(base, BLEND_FRAME_WEIGHT, canvas, BLEND_CANVAS_WEIGHT, 0)[mask > 0]
     return out
@@ -202,17 +212,21 @@ def draw_cursor(frame, state, cursor):
     color = state.get_color()
 
     if mode == "Drawing":
-        cv2.circle(frame, (cx, cy), state.brush_size // 2, color, -1, lineType=cv2.LINE_AA)
-        cv2.circle(frame, (cx, cy), state.brush_size // 2 + 2, (255, 255, 255), 1, lineType=cv2.LINE_AA)
+        cv2.circle(frame, (cx, cy), state.brush_size // 2, color, -1, lineType = cv2.LINE_AA)
+        cv2.circle(frame, (cx, cy), state.brush_size // 2 + 2, (255, 255, 255), 1, lineType = cv2.LINE_AA)
     elif mode == "Erasing":
         r = state.eraser_size
-        cv2.circle(frame, (cx, cy), r + 3, (60, 60, 60), 2, lineType=cv2.LINE_AA)
-
-        cv2.circle(frame, (cx, cy), r, (140, 140, 140), 1, lineType=cv2.LINE_AA)
-
-        cv2.circle(frame, (cx, cy), 3, (180, 180, 180), -1, lineType=cv2.LINE_AA)
+        cv2.circle(frame, (cx, cy), r + 5, (75, 75, 75), 2, lineType = cv2.LINE_AA)
+        cv2.circle(frame, (cx, cy), r + 3, (200, 130, 60), 1, lineType = cv2.LINE_AA)
+        cv2.circle(frame, (cx, cy), r + 1, (180, 180, 180), 2, lineType = cv2.LINE_AA)
+        cv2.circle(frame, (cx, cy), r - 1, (100, 190, 210), 1, lineType = cv2.LINE_AA)
+        cv2.circle(frame, (cx, cy), r - 3, (200, 140, 80), 1, lineType = cv2.LINE_AA)
+        cv2.circle(frame, (cx, cy), r - 5, (160, 80, 180), 1, lineType = cv2.LINE_AA)
+        cv2.circle(frame, (cx, cy), r - 7, (50, 80, 220), 1, lineType = cv2.LINE_AA)
+        cv2.circle(frame, (cx, cy), r - 9, (60, 180, 60), 1, lineType = cv2.LINE_AA)
+        cv2.circle(frame, (cx, cy), 3,     (220, 220, 220), 1, lineType = cv2.LINE_AA)
     else:
-        cv2.circle(frame, (cx, cy), 5, (200, 200, 200), 1, lineType=cv2.LINE_AA)
+        cv2.circle(frame, (cx, cy), 5, (200, 200, 200), 1, lineType = cv2.LINE_AA)
 
 
 def draw_hud(frame, state, fps, show_help):
@@ -226,9 +240,9 @@ def draw_hud(frame, state, fps, show_help):
     else:
         mode_color = (100, 100, 100)
 
-    draw_rounded_rect(frame, 14, 14, 370, 90, 10, (15, 15, 15), alpha=0.65)
+    draw_rounded_rect(frame, 14, 14, 370, 90, 10, (15, 15, 15), alpha = 0.65)
 
-    draw_rounded_rect(frame, 24, 24, 130, 48, 6, mode_color, alpha=0.9)
+    draw_rounded_rect(frame, 24, 24, 130, 48, 6, mode_color, alpha = 0.9)
     cv2.putText(frame, mode.upper(), (32, 41),
                 cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 1, cv2.LINE_AA)
 
@@ -249,7 +263,7 @@ def draw_tutorial(frame):
     panel_h = len(TUTORIAL_LINES) * line_h + 20
     panel_y = 14
 
-    draw_rounded_rect(frame, panel_x, panel_y, panel_x + panel_w, panel_y + panel_h, 10, (15, 15, 15), alpha=0.65)
+    draw_rounded_rect(frame, panel_x, panel_y, panel_x + panel_w, panel_y + panel_h, 10, (15, 15, 15), alpha = 0.65)
 
     for i, (text, color) in enumerate(TUTORIAL_LINES):
         if not text:
@@ -281,14 +295,14 @@ def ensure_model(model_url, output_path):
 
 
 def create_detector(model_path):
-    base = python.BaseOptions(model_asset_path=str(model_path))
+    base = python.BaseOptions(model_asset_path = str(model_path))
     options = vision.HandLandmarkerOptions(
-        base_options=base,
-        running_mode=vision.RunningMode.VIDEO,
-        num_hands=1,
-        min_hand_detection_confidence=0.55,
-        min_hand_presence_confidence=0.50,
-        min_tracking_confidence=0.50,
+        base_options = base,
+        running_mode = vision.RunningMode.VIDEO,
+        num_hands = 1,
+        min_hand_detection_confidence = 0.55,
+        min_hand_presence_confidence = 0.50,
+        min_tracking_confidence = 0.50,
     )
     return vision.HandLandmarker.create_from_options(options)
 
@@ -328,6 +342,7 @@ def save_canvas(canvas, base_dir):
 def handle_key(key, state, flags):
     if key in (27, ord("q")):
         return False
+    
     if key == 255:
         return True
 
@@ -338,14 +353,20 @@ def handle_key(key, state, flags):
 
     if key == ord("c"):
         state.clear()
+
     elif key == ord("s"):
         save_canvas(state.canvas, BASE_DIR)
-    elif key == ord("["):
+
+    elif key == ord("-") or key == ord("_"):
         state.brush_size = max(2, state.brush_size - 2)
-    elif key == ord("]"):
+
+    elif key == ord("=") or key == ord("+"):
         state.brush_size = min(50, state.brush_size + 2)
-    elif ord("1") <= key <= ord("5"):
-        state.color_idx = key - ord("1")
+
+    elif ord("1") <= key <= ord("9"):
+        idx = key - ord("1")
+        if idx < len(PALETTE):
+            state.color_idx = idx
 
     return True
 
@@ -413,12 +434,15 @@ if __name__ == "__main__":
     except cv2.error as e:
         logger.critical(f"OpenCV error: {e}")
         sys.exit(1)
+
     except RuntimeError as e:
         logger.critical(f"Hardware error: {e}")
         sys.exit(1)
+
     except KeyboardInterrupt:
         logger.info("Ctrl+C exit.")
         sys.exit(0)
+
     except Exception as e:
         logger.critical(f"ERROR: {e}")
         traceback.print_exc()
