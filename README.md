@@ -32,6 +32,25 @@ python cam_draw.py
 | ✌️ Index + middle finger up | Erase |
 | ✊ Closed hand | Idle |
 
+
+## Hand Landmarks
+
+MediaPipe detects **21 landmarks** on each hand, numbered 0 to 20:
+
+<img src="https://techvidvan.com/tutorials/wp-content/uploads/sites/2/2021/07/hand-landmarks.jpg" alt="Hand Landmarks Diagram">
+
+| Group | Landmarks | Description |
+|---|---|---|
+| Wrist | 0 | WRIST |
+| Thumb | 1–4 | CMC → MCP → IP → TIP |
+| Index finger | 5–8 | MCP → PIP → DIP → TIP |
+| Middle finger | 9–12 | MCP → PIP → DIP → TIP |
+| Ring finger | 13–16 | MCP → PIP → DIP → TIP |
+| Pinky | 17–20 | MCP → PIP → DIP → TIP |
+
+> Each finger has 4 points: base knuckle (MCP), middle knuckle (PIP), upper knuckle (DIP), and fingertip (TIP).
+
+
 ### Keyboard
 
 | Key | Action |
