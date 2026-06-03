@@ -13,6 +13,7 @@ import mediapipe as mp
 from mediapipe.tasks import python
 from mediapipe.tasks.python import vision
 
+# Logger setup
 logging.basicConfig(
     level=logging.INFO,
     format="[%(levelname)s] %(asctime)s - %(message)s",
@@ -22,8 +23,9 @@ logger = logging.getLogger("Handraw")
 
 os.environ.setdefault("OPENCV_LOG_LEVEL", "ERROR")
 
-WINDOW_W = 1280
-WINDOW_H = 720
+# Constants / Config
+WINDOW_W = 1920
+WINDOW_H = 1080
 DETECT_W = 320
 TARGET_FPS = 60
 
@@ -41,7 +43,7 @@ PALETTE = [
     ("blue", (190, 135, 0)),
     ("pink", (190, 0, 120)),
     ("orange", (0, 95, 190)),
-    ("white",  (205, 205, 205)),
+    ("white", (205, 205, 205)),
 ]
 
 BASE_DIR = Path(__file__).resolve().parent
@@ -49,7 +51,7 @@ MODEL_PATH = BASE_DIR / "hand_landmarker.task"
 MODEL_URL = "https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/1/hand_landmarker.task"
 WINDOW_NAME = "Handraw"
 
-
+# Data Classes 
 class HandState:
     def __init__(self):
         self.mode = "Idle"
@@ -78,47 +80,7 @@ class WhiteboardState:
     def get_color(self):
         return PALETTE[self.color_idx][1]
 
-
-def ensure_model(model_url, output_path):
-    if output_path.exists() and output_path.stat().st_size > 1024:
-        return
-    logger.info(f"Downloading model {output_path.name}...")
-    try:
-        urllib.request.urlretrieve(model_url, output_path)
-    except Exception as e:
-        logger.error(f"Error downloading model: {e}")
-        sys.exit(1)
-
-
-def create_detector(model_path):
-    base = python.BaseOptions(model_asset_path=str(model_path))
-    options = vision.HandLandmarkerOptions(
-        base_options=base,
-        running_mode=vision.RunningMode.VIDEO,
-        num_hands=1,
-        min_hand_detection_confidence=0.55,
-        min_hand_presence_confidence=0.50,
-        min_tracking_confidence=0.50,
-    )
-    return vision.HandLandmarker.create_from_options(options)
-
-
-def open_camera(cam_index, width, height, fps):
-    cap = cv2.VideoCapture(cam_index)
-    cap.set(cv2.CAP_PROP_FOURCC, cv2.VideoWriter_fourcc(*"MJPG"))
-    cap.set(cv2.CAP_PROP_FRAME_WIDTH, width)
-    cap.set(cv2.CAP_PROP_FRAME_HEIGHT, height)
-    cap.set(cv2.CAP_PROP_FPS, fps)
-
-    ret, frame = cap.read()
-    if not ret:
-        raise RuntimeError(f"Cam {cam_index} is not responding.")
-
-    real_h, real_w = frame.shape[:2]
-    logger.info(f"Cam is on. Res: {real_w}x{real_h} @ {fps}FPS")
-    return cap, real_h, real_w
-
-
+# Utility Functions
 def get_distance(a, b):
     return float(np.hypot(a[0] - b[0], a[1] - b[1]))
 
@@ -137,15 +99,7 @@ def extract_pixel_coords(hand_landmarks, width, height):
         points.append((x, y))
     return points
 
-
-def save_canvas(canvas, base_dir):
-    out_dir = base_dir / "captures"
-    out_dir.mkdir(exist_ok=True)
-    path = out_dir / f"whiteboard_{datetime.now():%Y%m%d_%H%M%S}.png"
-    cv2.imwrite(str(path), canvas)
-    logger.info(f"Screenshot saved: {path.name}")
-
-
+# Core Logic 
 def classify_gesture(points):
     state = HandState()
     state.idx_up = points[8][1] < points[6][1] - FINGER_UP_GAP
@@ -195,6 +149,25 @@ def update_state(state, hand_landmarks, win_w, win_h):
 
     return cursor
 
+# UI 
+def compose_image(frame, canvas):
+    mask = cv2.threshold(cv2.cvtColor(canvas, cv2.COLOR_BGR2GRAY), 1, 255, cv2.THRESH_BINARY)[1]
+    base = cv2.convertScaleAbs(frame, alpha=CAM_CONTRAST, beta=CAM_BRIGHTNESS)
+    out = base.copy()
+    out[mask > 0] = cv2.addWeighted(base, BLEND_FRAME_WEIGHT, canvas, BLEND_CANVAS_WEIGHT, 0)[mask > 0]
+    return out
+
+
+def draw_rounded_rect(frame, x1, y1, x2, y2, radius, color, alpha=0.6):
+    overlay = frame.copy()
+    cv2.rectangle(overlay, (x1 + radius, y1), (x2 - radius, y2), color, -1)
+    cv2.rectangle(overlay, (x1, y1 + radius), (x2, y2 - radius), color, -1)
+    cv2.circle(overlay, (x1 + radius, y1 + radius), radius, color, -1)
+    cv2.circle(overlay, (x2 - radius, y1 + radius), radius, color, -1)
+    cv2.circle(overlay, (x1 + radius, y2 - radius), radius, color, -1)
+    cv2.circle(overlay, (x2 - radius, y2 - radius), radius, color, -1)
+    cv2.addWeighted(overlay, alpha, frame, 1 - alpha, 0, frame)
+
 
 def draw_cursor(frame, state, cursor):
     cx = int(cursor[0])
@@ -212,24 +185,86 @@ def draw_cursor(frame, state, cursor):
         cv2.circle(frame, (cx, cy), 5, (200, 200, 200), 1, lineType=cv2.LINE_AA)
 
 
-def compose_image(frame, canvas):
-    mask = cv2.threshold(cv2.cvtColor(canvas, cv2.COLOR_BGR2GRAY), 1, 255, cv2.THRESH_BINARY)[1]
-    base = cv2.convertScaleAbs(frame, alpha=CAM_CONTRAST, beta=CAM_BRIGHTNESS)
-    out = base.copy()
-    out[mask > 0] = cv2.addWeighted(base, BLEND_FRAME_WEIGHT, canvas, BLEND_CANVAS_WEIGHT, 0)[mask > 0]
-    return out
-
-
 def draw_hud(frame, state, fps, show_help):
-    name, color = PALETTE[state.color_idx]
-    overlay = frame.copy()
+    name, ink_color = PALETTE[state.color_idx]
+    mode = state.current.mode
 
-    cv2.rectangle(overlay, (18, 18), (620, 130 if show_help else 85), (6, 8, 6), -1)
-    cv2.addWeighted(overlay, 0.75, frame, 0.25, 0, frame)
+    if mode == "Drawing":
+        mode_color = (60, 180, 60)
+    elif mode == "Erasing":
+        mode_color = (60, 60, 200)
+    else:
+        mode_color = (100, 100, 100)
 
-    cv2.putText(frame, f"MODE: {state.current.mode} | FPS: {fps:.1f}", (34, 46), 0, 0.6, (180, 180, 180), 1)
-    cv2.circle(frame, (42, 72), 6, color, -1)
-    cv2.putText(frame, f"Ink: {name} | Brush: {state.brush_size}px", (65, 78), 0, 0.5, (180, 180, 180), 1)
+    draw_rounded_rect(frame, 14, 14, 370, 90, 10, (15, 15, 15), alpha=0.65)
+
+    draw_rounded_rect(frame, 24, 24, 130, 48, 6, mode_color, alpha=0.9)
+    cv2.putText(frame, mode.upper(), (32, 41),
+                cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 1, cv2.LINE_AA)
+
+    cv2.putText(frame, f"FPS  {fps:.0f}", (142, 41),
+                cv2.FONT_HERSHEY_SIMPLEX, 0.48, (160, 160, 160), 1, cv2.LINE_AA)
+
+    cv2.circle(frame, (32, 70), 7, ink_color, -1, cv2.LINE_AA)
+    cv2.circle(frame, (32, 70), 8, (200, 200, 200), 1, cv2.LINE_AA)
+    cv2.putText(frame, f"color: {name}   |   brush {state.brush_size}px", (48, 75),
+                cv2.FONT_HERSHEY_SIMPLEX, 0.48, (200, 200, 200), 1, cv2.LINE_AA)
+
+# I/O
+def ensure_model(model_url, output_path):
+    if output_path.exists() and output_path.stat().st_size > 1024:
+        return
+    logger.info(f"Downloading model {output_path.name}...")
+    try:
+        urllib.request.urlretrieve(model_url, output_path)
+    except Exception as e:
+        logger.error(f"Error downloading model: {e}")
+        sys.exit(1)
+
+
+def create_detector(model_path):
+    base = python.BaseOptions(model_asset_path=str(model_path))
+    options = vision.HandLandmarkerOptions(
+        base_options=base,
+        running_mode=vision.RunningMode.VIDEO,
+        num_hands=1,
+        min_hand_detection_confidence=0.55,
+        min_hand_presence_confidence=0.50,
+        min_tracking_confidence=0.50,
+    )
+    return vision.HandLandmarker.create_from_options(options)
+
+
+def open_camera(cam_index, width, height, fps):
+    for idx in range(cam_index, cam_index + 4):
+        cap = cv2.VideoCapture(idx)
+        if not cap.isOpened():
+            cap.release()
+        cap.set(cv2.CAP_PROP_FRAME_WIDTH, width)
+        cap.set(cv2.CAP_PROP_FRAME_HEIGHT, height)
+        cap.set(cv2.CAP_PROP_FPS, fps)
+
+        ret, frame = cap.read()
+        if not ret:
+            cap.release()
+            continue
+
+        real_h, real_w = frame.shape[:2]
+        logger.info(f"Cam {idx} is on. Res: {real_w}x{real_h} @ {fps}FPS")
+        return cap, real_h, real_w
+
+    raise RuntimeError(
+        f"Không thể kết nối camera. Hãy kiểm tra camera, quyền truy cập, hoặc thử cổng/index khác "
+        f"(đã thử {cam_index} đến {cam_index + 3})."
+    )
+
+
+def save_canvas(canvas, base_dir):
+    out_dir = base_dir / "captures"
+    out_dir.mkdir(exist_ok=True)
+    path = out_dir / f"handraw_{datetime.now():%Y%m%d_%H%M%S}.png"
+    cv2.imwrite(str(path), canvas)
+    logger.info(f"Screenshot saved: {path.name}")
 
 
 def handle_key(key, state, flags):
@@ -256,7 +291,7 @@ def handle_key(key, state, flags):
 
     return True
 
-
+# Main Loop 
 def main():
     ensure_model(MODEL_URL, MODEL_PATH)
     detector = create_detector(MODEL_PATH)
@@ -312,7 +347,7 @@ def main():
         detector.close()
         cv2.destroyAllWindows()
 
-
+# Entry Point 
 if __name__ == "__main__":
     try:
         main()
