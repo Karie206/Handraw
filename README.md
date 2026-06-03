@@ -1,3 +1,10 @@
+## Hanraw
+![Python](https://img.shields.io/badge/Python-3.8+-blue?logo=python&logoColor=white)
+![OpenCV](https://img.shields.io/badge/OpenCV-4.x-green?logo=opencv&logoColor=white)
+![MediaPipe](https://img.shields.io/badge/MediaPipe-Latest-orange?logo=google&logoColor=white)
+![License](https://img.shields.io/badge/License-MIT-yellow)
+![Status](https://img.shields.io/badge/Status-Active-brightgreen)
+
 ## Project Structure
 
 ```
