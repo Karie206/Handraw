@@ -13,7 +13,7 @@ import mediapipe as mp
 from mediapipe.tasks import python
 from mediapipe.tasks.python import vision
 
-# Logger setup
+# Logger
 logging.basicConfig(
     level=logging.INFO,
     format="[%(levelname)s] %(asctime)s - %(message)s",
@@ -24,8 +24,8 @@ logger = logging.getLogger("Handraw")
 os.environ.setdefault("OPENCV_LOG_LEVEL", "ERROR")
 
 # Constants / Config
-WINDOW_W = 1920
-WINDOW_H = 1080
+WINDOW_W = 1600
+WINDOW_H = 900
 DETECT_W = 320
 TARGET_FPS = 60
 
@@ -50,6 +50,28 @@ BASE_DIR = Path(__file__).resolve().parent
 MODEL_PATH = BASE_DIR / "hand_landmarker.task"
 MODEL_URL = "https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/1/hand_landmarker.task"
 WINDOW_NAME = "Handraw"
+
+TUTORIAL_LINES = [
+    ("GESTURES", None),
+    ("", None),
+    (" Index up", (120, 220, 120)),
+    ("  -> Draw", (180, 180, 180)),
+    ("", None),
+    (" Index + Mid up", (120, 120, 220)),
+    ("  -> Erase", (180, 180, 180)),
+    ("", None),
+    (" Fist", (140, 140, 140)),
+    ("  -> Idle", (180, 180, 180)),
+    ("", None),
+    ("KEYBOARD", None),
+    ("", None),
+    (" 1 - 5  color", (180, 180, 180)),
+    (" [ / ]  brush size", (180, 180, 180)),
+    (" C    clear", (180, 180, 180)),
+    (" S    screenshot", (180, 180, 180)),
+    (" Tab  toggle HUD", (180, 180, 180)),
+    (" Q    quit", (180, 180, 180)),
+]
 
 # Data Classes 
 class HandState:
@@ -80,7 +102,7 @@ class WhiteboardState:
     def get_color(self):
         return PALETTE[self.color_idx][1]
 
-# Utility Functions
+# Utility Functions 
 def get_distance(a, b):
     return float(np.hypot(a[0] - b[0], a[1] - b[1]))
 
@@ -99,7 +121,7 @@ def extract_pixel_coords(hand_landmarks, width, height):
         points.append((x, y))
     return points
 
-# Core Logic 
+# Core Logic
 def classify_gesture(points):
     state = HandState()
     state.idx_up = points[8][1] < points[6][1] - FINGER_UP_GAP
@@ -142,14 +164,18 @@ def update_state(state, hand_landmarks, win_w, win_h):
         state.prev_point = cursor
     elif state.current.mode == "Erasing":
         p = tuple(cursor.astype(int))
-        cv2.circle(state.canvas, p, state.eraser_size, (0, 0, 0), -1, lineType=cv2.LINE_AA)
-        state.prev_point = None
+        if state.prev_point is not None:
+            p1 = tuple(state.prev_point.astype(int))
+            cv2.line(state.canvas, p1, p, (0, 0, 0), state.eraser_size * 2, lineType=cv2.LINE_AA)
+        else:
+            cv2.circle(state.canvas, p, state.eraser_size, (0, 0, 0), -1, lineType=cv2.LINE_AA)
+        state.prev_point = cursor
     else:
         state.prev_point = None
 
     return cursor
 
-# UI 
+# UI
 def compose_image(frame, canvas):
     mask = cv2.threshold(cv2.cvtColor(canvas, cv2.COLOR_BGR2GRAY), 1, 255, cv2.THRESH_BINARY)[1]
     base = cv2.convertScaleAbs(frame, alpha=CAM_CONTRAST, beta=CAM_BRIGHTNESS)
@@ -179,8 +205,12 @@ def draw_cursor(frame, state, cursor):
         cv2.circle(frame, (cx, cy), state.brush_size // 2, color, -1, lineType=cv2.LINE_AA)
         cv2.circle(frame, (cx, cy), state.brush_size // 2 + 2, (255, 255, 255), 1, lineType=cv2.LINE_AA)
     elif mode == "Erasing":
-        cv2.circle(frame, (cx, cy), state.eraser_size, (255, 255, 255), 2, lineType=cv2.LINE_AA)
-        cv2.circle(frame, (cx, cy), state.eraser_size, (0, 0, 200), 1, lineType=cv2.LINE_AA)
+        r = state.eraser_size
+        cv2.circle(frame, (cx, cy), r + 3, (60, 60, 60), 2, lineType=cv2.LINE_AA)
+
+        cv2.circle(frame, (cx, cy), r, (140, 140, 140), 1, lineType=cv2.LINE_AA)
+
+        cv2.circle(frame, (cx, cy), 3, (180, 180, 180), -1, lineType=cv2.LINE_AA)
     else:
         cv2.circle(frame, (cx, cy), 5, (200, 200, 200), 1, lineType=cv2.LINE_AA)
 
@@ -209,6 +239,34 @@ def draw_hud(frame, state, fps, show_help):
     cv2.circle(frame, (32, 70), 8, (200, 200, 200), 1, cv2.LINE_AA)
     cv2.putText(frame, f"color: {name}   |   brush {state.brush_size}px", (48, 75),
                 cv2.FONT_HERSHEY_SIMPLEX, 0.48, (200, 200, 200), 1, cv2.LINE_AA)
+
+
+def draw_tutorial(frame):
+    win_h, win_w = frame.shape[:2]
+    panel_w = 170
+    panel_x = win_w - panel_w - 14
+    line_h = 20
+    panel_h = len(TUTORIAL_LINES) * line_h + 20
+    panel_y = 14
+
+    draw_rounded_rect(frame, panel_x, panel_y, panel_x + panel_w, panel_y + panel_h, 10, (15, 15, 15), alpha=0.65)
+
+    for i, (text, color) in enumerate(TUTORIAL_LINES):
+        if not text:
+            continue
+        tx = panel_x + 10
+        ty = panel_y + 18 + i * line_h
+
+        if color is None:
+            # Section header
+            cv2.putText(frame, text, (tx, ty),
+                        cv2.FONT_HERSHEY_SIMPLEX, 0.42, (220, 220, 220), 1, cv2.LINE_AA)
+            # Underline
+            tw, _ = cv2.getTextSize(text, cv2.FONT_HERSHEY_SIMPLEX, 0.42, 1)[0]
+            cv2.line(frame, (tx, ty + 3), (tx + tw, ty + 3), (80, 80, 80), 1)
+        else:
+            cv2.putText(frame, text, (tx, ty),
+                        cv2.FONT_HERSHEY_SIMPLEX, 0.38, color, 1, cv2.LINE_AA)
 
 # I/O
 def ensure_model(model_url, output_path):
@@ -334,6 +392,7 @@ def main():
 
             if flags["hud"]:
                 draw_hud(out, state, fps, flags["help"])
+                draw_tutorial(out)
 
             cv2.imshow(WINDOW_NAME, out)
             key = cv2.waitKey(1) & 0xFF
