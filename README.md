@@ -44,7 +44,7 @@ python cam_draw.py
 
 MediaPipe detects **21 landmarks** on each hand, numbered 0 to 20:
 
-<img src="https://techvidvan.com/tutorials/wp-content/uploads/sites/2/2021/07/hand-landmarks.jpg" alt="Hand Landmarks Diagram">
+<img src="[https://techvidvan.com/tutorials/wp-content/uploads/sites/2/2021/07/hand-landmarks.jpg" alt="Hand Landmarks Diagram](https://editor.analyticsvidhya.com/uploads/25204hand_landmarks.png)">
 
 | Group | Landmarks | Description |
 |---|---|---|
