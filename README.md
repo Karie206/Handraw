@@ -20,7 +20,7 @@ pip install opencv-python opencv-contrib-python mediapipe numpy
 python cam_draw.py
 ```
 
-> The AI model (~9MB) is downloaded automatically on first run.
+> The AI model ~9MB is downloaded automatically on first run
 
 ## Controls
 
