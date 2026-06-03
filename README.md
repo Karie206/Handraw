@@ -3,8 +3,6 @@
 Draw on your screen using your hand and webcam — no mouse needed.  
 Powered by **MediaPipe** + **OpenCV**.
 
----
-
 ## 📁 Project Structure
 
 ```
@@ -14,8 +12,6 @@ vboard/
 ├── README.md
 └── captures/                # Screenshots saved here (auto-created)
 ```
-
----
 
 ## ⚙️ Install
 
@@ -30,8 +26,6 @@ python cam_draw.py
 ```
 
 > The AI model (~9MB) is downloaded automatically on first run.
-
----
 
 ## 🎮 Controls
 
@@ -53,8 +47,6 @@ python cam_draw.py
 | `S` | Save screenshot to `captures/` |
 | `Tab` | Toggle HUD |
 | `Q` / `Esc` | Quit |
-
----
 
 ## 🐛 Troubleshooting
 
