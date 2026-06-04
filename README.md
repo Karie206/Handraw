@@ -69,12 +69,6 @@ MediaPipe detects **21 landmarks** on each hand, numbered 0 to 20:
 | `Tab` | Toggle HUD |
 | `Q` / `Esc` | Quit |
 
-## Troubleshooting
-
-- **Webcam not opening** — change `open_camera(0, ...)` to `open_camera(1, ...)`
-- **Hand not detected** — improve lighting, lower `min_hand_detection_confidence` to `0.4`
-- **Low FPS** — reduce `WINDOW_W/H` or `DETECT_W` in the config section
-- **Model download fails** — download manually [here](https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/1/hand_landmarker.task) and place it next to `cam_draw.py`
 
 ## Credits
 
