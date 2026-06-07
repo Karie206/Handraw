@@ -1,17 +1,18 @@
+import logging
 import os
 import sys
-import time
-import logging
-import urllib.request
 import traceback
+import urllib.request
 from datetime import datetime
 from pathlib import Path
+from time import monotonic, sleep
 
-import cv2
 import numpy as np
+import cv2
+
 import mediapipe as mp
-from mediapipe.tasks import python
 from mediapipe.tasks.python import vision
+from mediapipe.tasks import python
 
 # Logger
 logging.basicConfig(
@@ -156,7 +157,7 @@ def process_frame(frame, detector, detect_w, win_w, win_h):
     small = cv2.resize(flipped, (detect_w, int(win_h * detect_w / win_w)))
     rgb = cv2.cvtColor(small, cv2.COLOR_BGR2RGB)
     mp_image = mp.Image(image_format = mp.ImageFormat.SRGB, data = rgb)
-    result = detector.detect_for_video(mp_image, int(time.monotonic() * 1000))
+    result = detector.detect_for_video(mp_image, int(monotonic() * 1000))
     return result.hand_landmarks[0] if result.hand_landmarks else None
 
 
@@ -224,7 +225,7 @@ def draw_cursor(frame, state, cursor):
         cv2.circle(frame, (cx, cy), r - 5, (160, 80, 180), 1, lineType = cv2.LINE_AA)
         cv2.circle(frame, (cx, cy), r - 7, (50, 80, 220), 1, lineType = cv2.LINE_AA)
         cv2.circle(frame, (cx, cy), r - 9, (60, 180, 60), 1, lineType = cv2.LINE_AA)
-        cv2.circle(frame, (cx, cy), 3,     (220, 220, 220), 1, lineType = cv2.LINE_AA)
+        cv2.circle(frame, (cx, cy), 3, (220, 220, 220), 1, lineType = cv2.LINE_AA)
     else:
         cv2.circle(frame, (cx, cy), 5, (200, 200, 200), 1, lineType = cv2.LINE_AA)
 
@@ -378,7 +379,7 @@ def run_app():
 
     state = WhiteboardState(WINDOW_W, WINDOW_H)
     flags = {"hud": True, "help": False, "debug": False, "landmarks": False}
-    last_time = time.monotonic()
+    last_time = monotonic()
     first_start = None
 
     logger.info("Starting the main cycle")
@@ -398,10 +399,10 @@ def run_app():
                 cursor = update_state(state, hands, WINDOW_W, WINDOW_H)
                 if state.current.mode == "Fist":
                     if first_start is None:
-                        first_start = time.monotonic()
-                    elif time.monotonic() - first_start >= 3.5:
+                        first_start = monotonic()
+                    elif monotonic() - first_start >= 3.5:
                         logger.info("Fist detected - exiting")
-                        time.sleep(0.5)
+                        sleep(0.5)
                         break
                 else:
                     first_start = None   
@@ -416,7 +417,7 @@ def run_app():
             if cursor is not None:
                 draw_cursor(out, state, cursor)
 
-            now = time.monotonic()
+            now = monotonic()
             fps = 1.0 / (now - last_time)
             last_time = now
 
