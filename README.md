@@ -62,8 +62,8 @@ MediaPipe detects **21 landmarks** on each hand, numbered 0 to 20:
 
 | Key | Action |
 |---|---|
-| `1` – `5` | Switch color (green, blue, pink, orange, white) |
-| `[` / `]` | Decrease / increase brush size |
+| `1` – `9` | Switch color (green, blue, pink, orange, white) |
+| `-` / `+` | Decrease / increase brush size |
 | `C` | Clear board |
 | `S` | Save screenshot to `captures/` |
 | `Tab` | Toggle HUD |
