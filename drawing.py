@@ -39,15 +39,15 @@ FINGER_UP_GAP = 20
 FINGER_EXT_RATIO = 0.58
 
 PALETTE = [
-    ("green",  (0, 175, 55)),
-    ("blue",   (190, 135, 0)),
+    ("green", (0, 175, 55)),
+    ("blue", (190, 135, 0)),
     ("purple", (190, 0, 120)),
     ("orange", (0, 95, 190)),
-    ("white",  (205, 205, 205)),
-    ("red",    (0, 0, 220)),
+    ("white", (205, 205, 205)),
+    ("red", (0, 0, 220)),
     ("yellow", (0, 215, 255)),
-    ("cyan",   (200, 180, 0)),
-    ("pink",   (180, 0, 180)),
+    ("cyan", (200, 180, 0)),
+    ("pink", (180, 0, 180)),
 ]
 
 BASE_DIR = Path(__file__).resolve().parent
@@ -113,8 +113,8 @@ def get_distance(a, b):
 
 def smooth_cursor(prev, target, smooth_factor):
     if prev is None:
-        return np.array(target, dtype=np.float32)
-    return prev * (1.0 - smooth_factor) + np.array(target, dtype=np.float32) * smooth_factor
+        return np.array(target, dtype = np.float32)
+    return prev * (1.0 - smooth_factor) + np.array(target, dtype = np.float32) * smooth_factor
 
 
 def extract_pixel_coords(hand_landmarks, width, height):
@@ -134,13 +134,13 @@ def classify_gesture(points):
     palm_size = max(get_distance(points[0], points[9]), get_distance(points[5], points[17]), 1.0)
     idx_ext = get_distance(points[8], points[5]) > palm_size * FINGER_EXT_RATIO
 
-    # check is fist?
-    # ring_up = points[16][1] < points[14][1] - FINGER_UP_GAP
-    # pinky_up = points[20][1] < points[18][1] - FINGER_UP_GAP
-    # is_fist = not state.idx_up and not state.mid_up and not ring_up and not pinky_up
+    ring_up = points[16][1] < points[14][1] - FINGER_UP_GAP
+    pinky_up = points[20][1] < points[18][1] - FINGER_UP_GAP
+    is_fist = not state.idx_up and not state.mid_up and not ring_up and not pinky_up
 
-    # if is_fist:
-    if state.idx_up and state.mid_up:
+    if is_fist:
+        state.mode = "Fist"
+    elif state.idx_up and state.mid_up:
         state.mode = "Erasing"
     elif state.idx_up or idx_ext:
         state.mode = "Drawing"
@@ -194,7 +194,7 @@ def compose_image(frame, canvas):
     return out
 
 
-def draw_rounded_rect(frame, x1, y1, x2, y2, radius, color, alpha=0.6):
+def draw_rounded_rect(frame, x1, y1, x2, y2, radius, color, alpha = 0.6):
     overlay = frame.copy()
     cv2.rectangle(overlay, (x1 + radius, y1), (x2 - radius, y2), color, -1)
     cv2.rectangle(overlay, (x1, y1 + radius), (x2, y2 - radius), color, -1)
@@ -251,7 +251,7 @@ def draw_hud(frame, state, fps, show_help):
 
     cv2.circle(frame, (32, 70), 7, ink_color, -1, cv2.LINE_AA)
     cv2.circle(frame, (32, 70), 8, (200, 200, 200), 1, cv2.LINE_AA)
-    cv2.putText(frame, f"color: {name}   |   brush {state.brush_size}px", (48, 75),
+    cv2.putText(frame, f"color: {name}  |  brush size: {state.brush_size}px ", (48, 75),
                 cv2.FONT_HERSHEY_SIMPLEX, 0.48, (200, 200, 200), 1, cv2.LINE_AA)
 
 
@@ -326,10 +326,9 @@ def open_camera(cam_index, width, height, fps):
         return cap, real_h, real_w
 
     raise RuntimeError(
-        f"Không thể kết nối camera. Hãy kiểm tra camera, quyền truy cập, hoặc thử cổng/index khác "
-        f"(đã thử {cam_index} đến {cam_index + 3})."
+        f"Cannot connect to camera (tried index {cam_index} to {cam_index + 3}). "
+        f"Check camera connection or permissions."
     )
-
 
 def save_canvas(canvas, base_dir):
     out_dir = base_dir / "captures"
@@ -371,7 +370,7 @@ def handle_key(key, state, flags):
     return True
 
 # Main Loop 
-def main():
+def run_app():
     ensure_model(MODEL_URL, MODEL_PATH)
     detector = create_detector(MODEL_PATH)
 
@@ -380,6 +379,7 @@ def main():
     state = WhiteboardState(WINDOW_W, WINDOW_H)
     flags = {"hud": True, "help": False, "debug": False, "landmarks": False}
     last_time = time.monotonic()
+    first_start = None
 
     logger.info("Starting the main cycle")
 
@@ -396,6 +396,15 @@ def main():
 
             if hands:
                 cursor = update_state(state, hands, WINDOW_W, WINDOW_H)
+                if state.current.mode == "Fist":
+                    if first_start is None:
+                        first_start = time.monotonic()
+                    elif time.monotonic() - first_start >= 3.5:
+                        logger.info("Fist detected - exiting")
+                        time.sleep(0.5)
+                        break
+                else:
+                    first_start = None   
             else:
                 cursor = None
                 state.prev_point = None
@@ -426,11 +435,11 @@ def main():
         cap.release()
         detector.close()
         cv2.destroyAllWindows()
-
+ 
 # Entry Point 
 if __name__ == "__main__":
     try:
-        main()
+        run_app()
     except cv2.error as e:
         logger.critical(f"OpenCV error: {e}")
         sys.exit(1)
