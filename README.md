@@ -71,6 +71,5 @@ MediaPipe detects **21 landmarks** on each hand, numbered 0 to 20:
 
 
 ## Credits
-
-- [MediaPipe](https://developers.google.com/mediapipe) by Google
-- [OpenCV](https://opencv.org/)
+- [MediaPipe](https://mediapipe.dev) by Google
+- [OpenCV](https://opencv.org) by OpenCV.org (open-source community)
