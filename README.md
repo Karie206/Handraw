@@ -15,6 +15,9 @@ vboard/
 └── captures/                # Screenshots saved here (auto-created)
 ```
 
+## Demo
+<img width="480" height="272" alt="demo_handraw" src="https://github.com/user-attachments/assets/e05a4ea2-47a0-4ff3-98c5-06e40ab77bcf" />
+
 ## Install
 
 ```bash
