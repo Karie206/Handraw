@@ -24,7 +24,7 @@ vboard/
 pip install opencv-python opencv-contrib-python mediapipe numpy
 ```
 
-## Run
+## How to run
 
 ```bash
 python cam_draw.py
