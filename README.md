@@ -8,11 +8,12 @@
 ## Project Structure
 
 ```
-vboard/
-├── cam_draw.py              # Main program
-├── hand_landmarker.task     # AI model (auto-downloaded on first run)
-├── README.md
-└── captures/                # Screenshots saved here (auto-created)
+HANDRAW/
+├── camera/
+│   ├── captures/           
+│   ├── drawing.py         
+│   └── hand_landmarker.task 
+└── README.md
 ```
 
 ## Demo
@@ -50,11 +51,11 @@ MediaPipe detects **21 landmarks** on each hand, numbered 0 to 20:
 | Group | Landmarks | Description |
 |---|---|---|
 | Wrist | 0 | WRIST |
-| Thumb | 1–4 | CMC → MCP → IP → TIP |
-| Index finger | 5–8 | MCP → PIP → DIP → TIP |
-| Middle finger | 9–12 | MCP → PIP → DIP → TIP |
-| Ring finger | 13–16 | MCP → PIP → DIP → TIP |
-| Pinky | 17–20 | MCP → PIP → DIP → TIP |
+| Thumb | 1-4 | CMC -> MCP -> IP -> TIP |
+| Index finger | 5-8 | MCP -> PIP -> DIP -> TIP |
+| Middle finger | 9-12 | MCP -> PIP -> DIP -> TIP |
+| Ring finger | 13-16 | MCP -> PIP -> DIP -> TIP |
+| Pinky | 17-20 | MCP -> PIP -> DIP -> TIP |
 
 > Each finger has 4 points: base knuckle (MCP), middle knuckle (PIP), upper knuckle (DIP), and fingertip (TIP).
 
